@@ -30,8 +30,8 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install bench (Playwright)
-        working-directory: bench
+      - name: Install tests (Playwright)
+        working-directory: tests
         run: |
           npm install
           npx playwright install chromium --with-deps
@@ -79,9 +79,9 @@ jobs:
               continue
             fi
 
-            node bench/run.js || true
-            cp bench/results.json "results/$TEAM.json" 2>/dev/null || \
-              echo "{\"team\":\"$TEAM\",\"summary\":{\"pass\":0,\"fail\":1,\"total\":1},\"rules\":[],\"frontend\":[],\"stress\":[],\"error\":\"bench crashed\"}" > "results/$TEAM.json"
+            node --test tests/run.js || true
+            cp tests/results.json "results/$TEAM.json" 2>/dev/null || \
+              echo "{\"team\":\"$TEAM\",\"summary\":{\"pass\":0,\"fail\":1,\"total\":1},\"rules\":[],\"frontend\":[],\"stress\":[],\"error\":\"tests crashed\"}" > "results/$TEAM.json"
 
             # Inject team name
             node -e "

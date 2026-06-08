@@ -51,9 +51,9 @@ jobs:
           npm install
           npm run build
 
-      - name: Install bench (Playwright)
+      - name: Install tests (Playwright)
         if: steps.team.outputs.skip != 'true'
-        working-directory: bench
+        working-directory: tests
         run: |
           npm install
           npx playwright install chromium --with-deps
@@ -69,11 +69,11 @@ jobs:
           done
           echo "::error::Server timeout" && exit 1
 
-      - name: Run benchmark
+      - name: Run tests
         id: bench
         if: steps.team.outputs.skip != 'true'
         continue-on-error: true
-        run: node bench/run.js
+        run: node --test tests/run.js
 
       - name: Post results
         if: steps.team.outputs.skip != 'true' && steps.app-token.outputs.token && always()
@@ -86,13 +86,13 @@ jobs:
 
             let results;
             try {
-              results = JSON.parse(fs.readFileSync('bench/results.json', 'utf8'));
+              results = JSON.parse(fs.readFileSync('tests/results.json', 'utf8'));
             } catch {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body: `## ❌ Benchmark falhou: ${team}\n\nO bench nao conseguiu gerar resultados. Verifique os logs.`
+                body: `## ❌ Testes falharam: ${team}\n\nOs testes nao conseguiram gerar resultados. Verifique os logs.`
               });
               return;
             }
@@ -161,7 +161,7 @@ jobs:
             body += renderCategory('Regras de negocio (API)', results.rules, scoring.rules);
             body += renderCategory('Frontend (Playwright)', results.frontend, scoring.frontend);
             body += renderCategory('Stress test', results.stress, scoring.stress);
-            body += `\n---\n> 🤖 Bench automatico · Rinha FullStack SENAI 2026\n`;
+            body += `\n---\n> 🤖 Testes automaticos · Rinha FullStack SENAI 2026\n`;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -170,8 +170,8 @@ jobs:
               body
             });
 
-      - name: Fail if benchmark has errors
+      - name: Fail if tests have errors
         if: steps.team.outputs.skip != 'true' && steps.bench.outcome != 'success'
         run: |
-          echo "::error::Benchmark falhou — merge bloqueado"
+          echo "::error::Testes falharam — merge bloqueado"
           exit 1

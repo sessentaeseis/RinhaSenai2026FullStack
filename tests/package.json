@@ -1,9 +1,9 @@
 {
-  "name": "rinha-bench",
+  "name": "rinha-tests",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node run.js"
+    "test": "node --test run.js"
   },
   "dependencies": {
     "playwright": "^1.52.0"
