@@ -332,6 +332,11 @@ async function testStress() {
     `${created} de ${TOTAL}`)
   check('stress', 'Zero erros 500', errors500 === 0, errors500 > 0 ? `${errors500} erros` : '')
   check('stress', `Throughput: ${throughput} txn/s`, throughput > 0, `${elapsed}ms`)
+  results.metrics = results.metrics || {}
+  results.metrics.throughput = throughput
+  results.metrics.stress_elapsed_ms = elapsed
+  results.metrics.stress_created = created
+  results.metrics.stress_total = TOTAL
 
   // Idempotency stress: send same key from multiple workers
   const idemKey = `idem-stress-${Date.now()}`
@@ -388,13 +393,36 @@ async function main() {
   await testFrontend()
   await testStress()
 
-  // Summary
+  // Summary with scoring
   const total = pass + fail
+  const rulesPass = results.rules.filter(t => t.ok).length
+  const rulesTotal = results.rules.length
+  const frontendPass = results.frontend.filter(t => t.ok).length
+  const frontendTotal = results.frontend.length
+  const stressPass = results.stress.filter(t => t.ok).length
+  const stressTotal = results.stress.length
+
+  // Scoring: rules=50pts, frontend=30pts, stress=20pts
+  const rulesScore = Math.round((rulesPass / Math.max(rulesTotal, 1)) * 50)
+  const frontendScore = Math.round((frontendPass / Math.max(frontendTotal, 1)) * 30)
+  const stressScore = Math.round((stressPass / Math.max(stressTotal, 1)) * 20)
+  const totalScore = rulesScore + frontendScore + stressScore
+
   console.log(`\n========================================`)
   console.log(`RESULTADO: ${pass}/${total} testes passando`)
+  console.log(`PONTUACAO: ${totalScore}/100`)
+  console.log(`  Regras: ${rulesScore}/50 | Frontend: ${frontendScore}/30 | Stress: ${stressScore}/20`)
   console.log(`========================================\n`)
 
   results.summary = { pass, fail, total }
+  results.scoring = {
+    rules: { pass: rulesPass, total: rulesTotal, score: rulesScore, max: 50 },
+    frontend: { pass: frontendPass, total: frontendTotal, score: frontendScore, max: 30 },
+    stress: { pass: stressPass, total: stressTotal, score: stressScore, max: 20 },
+    total: totalScore
+  }
+  results.metrics = results.metrics || {}
+  results.metrics.throughput = results.metrics.throughput || 0
 
   // Write JSON
   const fs = await import('fs')

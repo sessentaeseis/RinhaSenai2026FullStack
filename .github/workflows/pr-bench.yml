@@ -88,29 +88,66 @@ jobs:
             }
 
             const { pass, fail, total } = results.summary;
+            const scoring = results.scoring || {};
+            const metrics = results.metrics || {};
             const status = fail === 0 ? '✅' : '⚠️';
+            const totalScore = scoring.total || 0;
 
-            function renderCategory(title, items) {
+            function renderCategory(title, items, scoreInfo) {
               if (!items || items.length === 0) return '';
-              let md = `\n### ${title}\n\n`;
-              for (const t of items) {
-                const icon = t.ok ? '✅' : '❌';
-                md += `- ${icon} ${t.name}`;
-                if (t.detail) md += ` *(${t.detail})*`;
+              const failing = items.filter(t => !t.ok);
+              const passing = items.filter(t => t.ok);
+              const scoreLabel = scoreInfo ? ` (${scoreInfo.score}/${scoreInfo.max} pts)` : '';
+
+              let md = `\n### ${title}${scoreLabel}\n\n`;
+
+              if (failing.length > 0) {
+                md += `**❌ Falhas (${failing.length}):**\n`;
+                for (const t of failing) {
+                  md += `- ❌ ${t.name}`;
+                  if (t.detail) md += ` — \`${t.detail}\``;
+                  md += '\n';
+                }
                 md += '\n';
+              }
+
+              if (passing.length > 0 && failing.length > 0) {
+                md += `<details>\n<summary>✅ ${passing.length} testes passando</summary>\n\n`;
+                for (const t of passing) md += `- ✅ ${t.name}\n`;
+                md += `\n</details>\n`;
+              } else if (passing.length > 0) {
+                md += `<details>\n<summary>✅ ${passing.length}/${items.length} testes passando</summary>\n\n`;
+                for (const t of passing) {
+                  md += `- ✅ ${t.name}`;
+                  if (t.detail) md += ` *(${t.detail})*`;
+                  md += '\n';
+                }
+                md += `\n</details>\n`;
               }
               return md;
             }
 
-            let body = `## ${status} Resultado -- ${team}\n\n`;
-            body += `| Metrica | Valor |\n`;
-            body += `|---------|-------|\n`;
-            body += `| Testes passando | **${pass}/${total}** |\n`;
-            body += `| Testes falhando | **${fail}/${total}** |\n`;
-            body += renderCategory('Fase 1: Regras de negocio (API)', results.rules);
-            body += renderCategory('Fase 2: Frontend (Playwright)', results.frontend);
-            body += renderCategory('Fase 3: Stress test', results.stress);
-            body += `\n---\n> 🤖 Bench automatico executado pelo CI\n`;
+            let body = `## ${status} Resultado — ${team}\n\n`;
+            body += `### Pontuacao: **${totalScore}/100**\n\n`;
+            body += `| Categoria | Testes | Pontos |\n`;
+            body += `|-----------|--------|--------|\n`;
+            body += `| Regras de negocio | ${scoring.rules?.pass || 0}/${scoring.rules?.total || 0} | **${scoring.rules?.score || 0}/50** |\n`;
+            body += `| Frontend (Playwright) | ${scoring.frontend?.pass || 0}/${scoring.frontend?.total || 0} | **${scoring.frontend?.score || 0}/30** |\n`;
+            body += `| Stress test | ${scoring.stress?.pass || 0}/${scoring.stress?.total || 0} | **${scoring.stress?.score || 0}/20** |\n`;
+            body += `| **Total** | **${pass}/${total}** | **${totalScore}/100** |\n`;
+
+            if (metrics.throughput) {
+              body += `\n### Performance\n\n`;
+              body += `| Metrica | Valor |\n`;
+              body += `|---------|-------|\n`;
+              body += `| Throughput | **${metrics.throughput} txn/s** |\n`;
+              body += `| Stress latencia | **${metrics.stress_elapsed_ms}ms** (${metrics.stress_created}/${metrics.stress_total} txns) |\n`;
+            }
+
+            body += renderCategory('Regras de negocio (API)', results.rules, scoring.rules);
+            body += renderCategory('Frontend (Playwright)', results.frontend, scoring.frontend);
+            body += renderCategory('Stress test', results.stress, scoring.stress);
+            body += `\n---\n> 🤖 Bench automatico · Rinha FullStack SENAI 2026\n`;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
